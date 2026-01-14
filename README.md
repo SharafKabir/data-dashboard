@@ -49,35 +49,7 @@ npm run dev:client
 - **Frontend**: React 18, Vite, React Router
 - **Backend**: Node.js, Express.js
 - **Authentication**: AWS Cognito (via AWS Amplify)
+- **Database** RDS PostgreSQL server
 - **Styling**: CSS3 with modern design
 
-## AWS Cognito Setup
-
-1. Create an AWS Cognito User Pool:
-   - Go to AWS Console → Cognito → User Pools
-   - Create a new User Pool
-   - Note your User Pool ID and App Client ID
-
-2. Configure environment variables:
-   - Copy `client/.env.example` to `client/.env`
-   - Fill in your AWS Cognito credentials:
-     ```
-     VITE_AWS_USER_POOL_ID=your-user-pool-id
-     VITE_AWS_USER_POOL_CLIENT_ID=your-client-id
-     VITE_AWS_REGION=us-east-1
-     ```
-
-3. Configure Cognito App Client:
-   - Enable "ALLOW_USER_PASSWORD_AUTH" authentication flow
-   - Enable "ALLOW_REFRESH_TOKEN_AUTH" authentication flow
-
-## API Endpoints
-
-- `GET /api` - Welcome message
-- `GET /api/health` - Health check endpoint
-
-## Routes
-
-- `/` - Home page
-- `/login` - Login/Sign up page
-
+Currently working on deploying using AWS EC2 and CloudFront!
