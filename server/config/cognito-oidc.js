@@ -1,50 +1,48 @@
-// server/config/cognito-oidc.js
+// cognito oidc setup
 import { Issuer } from 'openid-client';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
-// Get the directory of the current module
+// get current directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load .env file BEFORE reading environment variables
+// load env vars
 config({ path: join(__dirname, '..', '.env') });
 
-// AWS Cognito OIDC Configuration
-// Replace MY-ID and MY-SECRET with your actual values from AWS Cognito
-// Or use environment variables for security
+// cognito config, set these in .env
 
 const issuerUrl = 'https://cognito-idp.us-east-2.amazonaws.com/us-east-2_xMStiMUKO';
-const clientId = (process.env.AWS_CLIENT_ID || 'c0c1gj5lr4p2rb8751bt1lchf').trim(); // Replace MY-ID with your actual client ID
-const clientSecret = (process.env.AWS_CLIENT_SECRET || 'client secret').trim(); // Replace MY-SECRET with your actual client secret
+const clientId = (process.env.AWS_CLIENT_ID || 'c0c1gj5lr4p2rb8751bt1lchf').trim();
+const clientSecret = (process.env.AWS_CLIENT_SECRET || 'client secret').trim();
 const redirectUri = (process.env.REDIRECT_URI || 'http://localhost:3001/auth/callback').trim();
 
 let client = null;
 
-// Initialize OpenID Client
+// initialize cognito client
 export async function initializeOIDCClient() {
   try {
     const issuer = await Issuer.discover(issuerUrl);
     
-    // Build client config
+    // build client config
     const clientConfig = {
       client_id: clientId,
       redirect_uris: [redirectUri],
       response_types: ['code']
     };
     
-    // Check if we have a valid client secret
+    // check we have actual secret, not placeholder
     const hasSecret = clientSecret && 
                       clientSecret !== 'client secret' && 
                       clientSecret.trim().length > 0 &&
-                      process.env.AWS_CLIENT_SECRET; // Make sure it came from env, not fallback
+                      process.env.AWS_CLIENT_SECRET;
     
     if (hasSecret) {
       clientConfig.client_secret = clientSecret;
       console.log('✓ Client secret loaded (length:', clientSecret.length, ')');
     } else {
-      // If no secret from env, this is an error for Cognito confidential clients
+      // no secret = can't login
       console.error('❌ ERROR: AWS_CLIENT_SECRET is missing or invalid!');
       console.error('   Your Cognito app client requires a client secret.');
       console.error('   Please create a .env file in the server directory with:');
@@ -67,12 +65,12 @@ export async function initializeOIDCClient() {
   }
 }
 
-// Export client getter for use in routes
+// return the client
 export function getClient() {
   return client;
 }
 
-// Export redirect URI for use in routes
+// redirect uris for login/logout
 export const redirectUris = {
   login: redirectUri,
   logout: process.env.REDIRECT_URI_LOGOUT || 'http://localhost:3000',

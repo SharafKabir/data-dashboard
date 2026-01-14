@@ -1,4 +1,4 @@
-// AWS S3 configuration and upload utilities
+// s3 file storage
 import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
@@ -8,20 +8,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 config({ path: join(__dirname, '..', '.env') });
 
-// Validate environment variables
+// grab aws creds from env
 const AWS_REGION = (process.env.AWS_REGION || 'us-east-2').trim();
 const AWS_ACCESS_KEY_ID = (process.env.AWS_ACCESS_KEY_ID || '').trim();
 const AWS_SECRET_ACCESS_KEY = (process.env.AWS_SECRET_ACCESS_KEY || '').trim();
 const BUCKET_NAME = (process.env.AWS_S3_BUCKET_NAME || '').trim();
 
-// Log configuration status (without exposing secrets)
+// log config but hide the secret
 console.log('\n=== S3 Configuration ===');
 console.log('  Region:', AWS_REGION);
 console.log('  Bucket:', BUCKET_NAME || '❌ NOT SET');
 console.log('  Access Key ID:', AWS_ACCESS_KEY_ID ? `${AWS_ACCESS_KEY_ID.substring(0, 8)}...` : '❌ NOT SET');
 console.log('  Secret Key:', AWS_SECRET_ACCESS_KEY ? '✓ SET (' + AWS_SECRET_ACCESS_KEY.length + ' chars)' : '❌ NOT SET');
 
-// Initialize S3 client only if credentials are provided
+// only init s3 if we have creds
 let s3Client = null;
 if (AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY && BUCKET_NAME) {
   try {
@@ -40,14 +40,7 @@ if (AWS_ACCESS_KEY_ID && AWS_SECRET_ACCESS_KEY && BUCKET_NAME) {
   console.warn('⚠️  S3 client NOT initialized - missing credentials or bucket name\n');
 }
 
-/**
- * Upload a Parquet file to S3
- * @param {Buffer} parquetBuffer - The Parquet file as a Buffer
- * @param {string} cognitoSub - User's Cognito sub
- * @param {string} dsGroupId - Dataset group ID (UUID)
- * @param {string} commitId - Commit ID (UUID)
- * @returns {Promise<string>} - The S3 key/path where the file was uploaded
- */
+// upload parquet to s3
 export async function uploadParquetToS3(parquetBuffer, cognitoSub, dsGroupId, commitId) {
   if (!s3Client) {
     throw new Error('S3 client not initialized. Check AWS credentials and bucket name in .env file.');
@@ -103,13 +96,7 @@ export async function uploadParquetToS3(parquetBuffer, cognitoSub, dsGroupId, co
   }
 }
 
-/**
- * Download a Parquet file from S3
- * @param {string} cognitoSub - User's Cognito sub
- * @param {string} dsGroupId - Dataset group ID (UUID)
- * @param {string} commitId - Commit ID (UUID)
- * @returns {Promise<Buffer>} - The Parquet file as a Buffer
- */
+// download parquet from s3
 export async function downloadParquetFromS3(cognitoSub, dsGroupId, commitId) {
   if (!s3Client) {
     throw new Error('S3 client not initialized. Check AWS credentials and bucket name in .env file.');
@@ -134,7 +121,7 @@ export async function downloadParquetFromS3(cognitoSub, dsGroupId, commitId) {
     const response = await s3Client.send(command);
     const chunks = [];
     
-    // Stream the response body into a buffer
+    // read chunks and combine into buffer
     for await (const chunk of response.Body) {
       chunks.push(chunk);
     }
@@ -158,13 +145,7 @@ export async function downloadParquetFromS3(cognitoSub, dsGroupId, commitId) {
   }
 }
 
-/**
- * Get a readable stream for a Parquet file from S3
- * @param {string} cognitoSub - User's Cognito sub
- * @param {string} dsGroupId - Dataset group ID (UUID)
- * @param {string} commitId - Commit ID (UUID)
- * @returns {Promise<ReadableStream>} - The Parquet file as a stream
- */
+// get a stream from s3 if you need it
 export async function getParquetStreamFromS3(cognitoSub, dsGroupId, commitId) {
   if (!s3Client) {
     throw new Error('S3 client not initialized. Check AWS credentials and bucket name in .env file.');
@@ -189,7 +170,7 @@ export async function getParquetStreamFromS3(cognitoSub, dsGroupId, commitId) {
     const response = await s3Client.send(command);
     console.log('✓ Parquet stream obtained from S3');
     console.log('=======================\n');
-    return response.Body; // This is a ReadableStream
+    return response.Body; // returns a stream
   } catch (error) {
     console.error('\n❌ S3 Stream Error:');
     console.error('  Error name:', error.name);
@@ -199,12 +180,7 @@ export async function getParquetStreamFromS3(cognitoSub, dsGroupId, commitId) {
   }
 }
 
-/**
- * Delete all S3 objects for a project (all commits)
- * @param {string} cognitoSub - User's Cognito sub
- * @param {string} dsGroupId - Dataset group ID (UUID)
- * @returns {Promise<number>} - Number of objects deleted
- */
+// delete all project files from s3
 export async function deleteProjectFromS3(cognitoSub, dsGroupId) {
   if (!s3Client) {
     throw new Error('S3 client not initialized. Check AWS credentials and bucket name in .env file.');
@@ -221,7 +197,7 @@ export async function deleteProjectFromS3(cognitoSub, dsGroupId) {
   console.log('  Prefix:', prefix);
 
   try {
-    // List all objects with this prefix
+    // list all files to delete
     const listCommand = new ListObjectsV2Command({
       Bucket: BUCKET_NAME,
       Prefix: prefix,
@@ -235,11 +211,11 @@ export async function deleteProjectFromS3(cognitoSub, dsGroupId) {
       return 0;
     }
 
-    // Delete all objects (S3 allows up to 1000 objects per DeleteObjects call)
+    // s3 limits to 1000 deletes at once, so batch it
     const objectsToDelete = listResponse.Contents.map(obj => ({ Key: obj.Key }));
     
     let deletedCount = 0;
-    // Process in batches of 1000 (S3 limit)
+    // delete in batches of 1000
     for (let i = 0; i < objectsToDelete.length; i += 1000) {
       const batch = objectsToDelete.slice(i, i + 1000);
       const deleteCommand = new DeleteObjectsCommand({

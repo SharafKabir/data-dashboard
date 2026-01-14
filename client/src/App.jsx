@@ -11,7 +11,7 @@ function AppContent({ user, setUser, checkAuthStatus }) {
   const location = useLocation();
 
   useEffect(() => {
-    // Refresh auth status when route changes (especially after callback)
+    // check auth when route changes, especially after cognito callback
     checkAuthStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname]);
@@ -33,7 +33,7 @@ function App() {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    // Check if user is authenticated via backend
+    // check if user is logged in
     checkAuthStatus();
   }, []);
 
